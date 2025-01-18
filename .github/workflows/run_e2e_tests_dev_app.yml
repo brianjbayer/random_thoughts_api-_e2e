@@ -1,0 +1,94 @@
+name: Run Random Thoughts API End-to-End Tests Against Dev App
+
+on:
+  workflow_call:
+    inputs:
+      runner:
+        description: "The type of runner for this workflow (Default: ubuntu-latest)"
+        required: false
+        type: string
+        default: ubuntu-latest
+      app_name:
+        description: "The name of the app under test by the e2e tests"
+        required: true
+        type: string
+      e2e_tests_image:
+        description: "Non-default End-to-End tests image to run"
+        required: false
+        type: string
+      e2e_tests_command_prefix:
+        description: "Command line prefix to add before e2e test command"
+        required: false
+        type: string
+      workflow_checkout_ref:
+        description: "The ref to checkout for the scripts used in the workflow"
+        required: false
+        type: string
+        # NOTE: Version the scripts for this workflow here
+        # TODO: Use version
+        default: add-e2e-dev-app-workflow
+
+jobs:
+  e2e-tests-dev-app:
+    name: End-to-End Tests Against Dev App
+    runs-on: ${{ inputs.runner }}
+
+    steps:
+      - name: Checkout e2e tests repo
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.workflow_checkout_ref }}
+          repository: brianjbayer/random_thoughts_api_e2e
+          path: e2e_tests
+
+      - name: Checkout app repo
+        uses: actions/checkout@v4
+        with:
+          path: ${{ inputs.app_name }}
+
+        # TODO handle supplying image (.ci.yml)
+      - name: Start the e2e stack and tests
+        run: |
+          cd e2e_tests
+          ${{ inputs.e2e_tests_command_prefix }} docker compose -f docker-compose.yml -f docker-compose.tests.yml -f docker-compose.tests-dependency.yml -f docker-compose.tests-up.yml pull
+          ${{ inputs.e2e_tests_command_prefix }} docker compose -f docker-compose.yml -f docker-compose.tests.yml -f docker-compose.tests-dependency.yml -f docker-compose.tests-up.yml up -d
+
+      - name: Run orchestrated dockercomposelocaldev of app
+        run: |
+          cd e2e_tests
+          sleep 5
+          ${{ inputs.e2e_tests_command_prefix }} ./script/dockercomposelocaldev ${{ inputs.app_name }} ./entrypoint.sh &
+
+      - name: Run orchestrated dockercomposelocaldev of app
+        run: |
+          cd e2e_tests
+          sleep 5
+          ${{ inputs.e2e_tests_command_prefix }} docker exec -it e2etests ./script/run tests
+
+# TODO:
+  # step 1: start the e2e stack and tests interactively: ./script/dockercomposerun bash
+  # step 2: run the local app under test: ./script/dockercomposelocaldev random_thoughts_api ./entrypoint.sh
+  # step 3: wait for app to start with sleep then exec: docker exec -it e2etests ./script/run tests
+  # NO: steps need to return (detached)
+
+# jobs:
+#   build:
+#     runs-on: ubuntu-latest
+#     steps:
+#     - name: Checkout main repo
+#       uses: actions/checkout@v3
+#       with:
+#         path: main-repo
+
+#     - name: Checkout dependency repo
+#       uses: actions/checkout@v3
+#       with:
+#         repository: my-org/my-dependency-repo  # Replace with your dependency repo
+#         path: dependency-repo
+
+#     - name: Run script from main repo
+#       run: |
+#         cd main-repo
+#         npm install
+#         npm run build
+

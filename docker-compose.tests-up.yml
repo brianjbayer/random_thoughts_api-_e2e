@@ -1,0 +1,4 @@
+services:
+  e2etests:
+    # Keep the container running
+    command: ${MOCK_CMD:-tail -f /dev/null}
